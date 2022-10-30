@@ -24,7 +24,7 @@ jobs:
       run: |
         export PYTHONPATH=`pwd`/src:`pwd`/tests
         cd tests
-        ../python/bin/python3 -m pytest 
+        ../packages/python/bin/python3 -m pytest 
         
 
 #    - name: Build docs
