@@ -1,0 +1,29 @@
+
+package:
+  name: fltools
+
+  dep-sets:
+
+  - name: default
+    deps: []
+
+  - name: default-dev
+    deps: 
+    - name: pytest
+      src: pypi
+    - name: Sphinx
+      src: pypi
+    - name: sphinx-argparse
+      src: pypi
+    - name: sphinxcontrib-makedomain
+      src: pypi
+    - name: sphinxcontrib-openapi
+      src: pypi
+    - name: sphinxcontrib-spelling
+      src: pypi
+    - name: sphinx-rtd-theme
+      src: pypi
+    - name: sphinx-jsonschema
+      src: pypi
+
+

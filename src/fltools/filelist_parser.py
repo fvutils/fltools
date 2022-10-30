@@ -23,6 +23,7 @@
 #****************************************************************************
 
 import os
+from typing import Dict
 from .filelist_token import FilelistToken
 
 class FilelistParser():
@@ -138,7 +139,7 @@ class FilelistParser():
         
     def __init__(self):
         # Map of path to a stack of inclusion locations
-        self.filename_m = {}
+        self.filename_m : Dict[str,'FilelistParser.FileInfo'] = {}
         self.input_s = []
         self.include_s = []
         self.token_l = []
@@ -175,7 +176,9 @@ class FilelistParser():
             # This is the first file, so add it to the map
             self.include_s.append(("command line", -1))
 
-        self.filename_m[path] = self.include_s.copy()
+        self.filename_m[path] = FilelistParser.FileInfo(
+            relative_path_basedir, 
+            self.include_s.copy())
         
         try:
             fp = open(path, "rb")
@@ -198,16 +201,19 @@ class FilelistParser():
             if tok.img == "-f" or tok.img == "-F":
                 inc_filename = tok.filename
                 inc_lineno = tok.lineno
+                is_caps_f = (tok.img == "-F")
 
                 # Sub-inclusion
                 try:
                     tok = next(it)
                 except StopIteration:
                     # TODO: this is a missing filename
+                    print("Error: no filename")
                     break
                     pass
 
-                full_path = tok.get_img(True)
+                full_path = tok.resolve()
+                print("full_path: %s" % full_path)
 
                 self.include_s.append((inc_filename, inc_lineno))
                 if full_path in self.filename_m.keys():
@@ -216,9 +222,15 @@ class FilelistParser():
                     # we got here. The filename_m entry contains
                     # the full path of how the original file was 
                     # included
+                    print("Error: multiple inclusion")
                     pass
                 else:
-                    self.parse(tok.get_img(True), relative_path_basedir)
+                    if is_caps_f:
+                        rel_basedir = os.path.dirname(full_path)
+                    else:
+                        rel_basedir = relative_path_basedir
+                        
+                    self.parse(full_path, rel_basedir)
                 self.include_s.pop()
             else:
                 self.token_l.append(tok)
@@ -226,5 +238,25 @@ class FilelistParser():
         self.input_s.pop()
 
         return self.token_l
+
+    def _resolve(self, src_filelist, path):
+        if src_filelist not in self.filename_m.keys():
+            raise Exception("Filelist %s was not previously processed" % src_filelist)
+        
+        return self.filename_m[src_filelist].resolve(path)
+
+    class FileInfo(object):
+
+        def __init__(self, relpath_resolve_base, inc_s):
+            self.relpath_resolve_base = relpath_resolve_base
+            self.inc_s = inc_s
+
+        def resolve(self, path):
+            if os.path.isabs(path):
+                return os.path.normpath(path)
+            else:
+                return os.path.normpath(
+                    os.path.join(self.relpath_resolve_base, path))
+
     
     

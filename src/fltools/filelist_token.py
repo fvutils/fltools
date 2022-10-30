@@ -44,6 +44,14 @@ class FilelistToken(object):
         else:
             return self.img
 
+    def resolve(self, expand_env=True):
+        path = self.img
+
+        if expand_env:
+            path = FilelistToken._expand(path)
+
+        return self.parser._resolve(self.filename, path)
+
     @staticmethod           
     def _expand(str):
         i=0
