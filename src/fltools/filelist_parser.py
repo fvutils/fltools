@@ -1,61 +1,36 @@
-'''
-Created on Nov 23, 2019
-
-@author: ballance
-'''
+#****************************************************************************
+#* filelist_token.py
+#*
+#* Copyright 2022 Matthew Ballance and Contributors
+#*
+#* Licensed under the Apache License, Version 2.0 (the "License"); you may 
+#* not use this file except in compliance with the License.  
+#* You may obtain a copy of the License at:
+#*
+#*   http://www.apache.org/licenses/LICENSE-2.0
+#*
+#* Unless required by applicable law or agreed to in writing, software 
+#* distributed under the License is distributed on an "AS IS" BASIS, 
+#* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  
+#* See the License for the specific language governing permissions and 
+#* limitations under the License.
+#*
+#*
+#* Created on Nov 23, 2019
+#*
+#* @author: ballance
+#*
+#****************************************************************************
 
 import os
+from .filelist_token import FilelistToken
 
 class FilelistParser():
     
-    class Token():
-        def __init__(self, 
-                     parser,
-                     fileid,
-                     img, 
-                     lineno,
-                     linepos):
-            self.parser = parser
-            self.img = img
-            self.fileid = fileid
-            self.lineno = lineno
-            self.linepos = linepos
-            
-        def get_img(self, expand_env=False):
-            if expand_env:
-                return self.expand(self.img)
-            else:
-                return self.img
-            
-        def expand(self, str):
-            i=0
-            ret = ""
-            while i < len(str):
-                d_idx = str.find('$', i)
-                if d_idx != -1:
-                    ret += str[i:d_idx]
-                    if str[d_idx+1] == '{':
-                        c_idx = str.find('}', d_idx+2)
-                        if c_idx != -1:
-                            key = str[d_idx+2:c_idx]
-                            if key in os.environ:
-                                ret += os.environ[key]
-                            i = c_idx+1
-                        else:
-                            ret += str[d_idx+1]
-                            i = d_idx+2
-                    else:
-                        ret += str[i+1]
-                        i += 1
-                else:
-                    ret += str[i:]
-                    break
-            return ret
-    
     class Input():
-        def __init__(self, parser, fileid, fp):
+        def __init__(self, parser, filename, fp):
             self.parser = parser
-            self.fileid = fileid
+            self.filename = filename
             self.fp = fp
             self.lineno = 1
             self.linepos = 1
@@ -72,9 +47,9 @@ class FilelistParser():
             if tok == None:
                 raise StopIteration
             
-            return FilelistParser.Token(
+            return FilelistToken(
                 self.parser,
-                self.fileid,
+                self.filename,
                 tok[0],
                 tok[1],
                 tok[2]
@@ -162,9 +137,10 @@ class FilelistParser():
             self.unget_c = c
         
     def __init__(self):
-        self.filename_l = []
+        # Map of path to a stack of inclusion locations
         self.filename_m = {}
         self.input_s = []
+        self.include_s = []
         self.token_l = []
         self.fail_on_error = False
         self.backtrace_on_error = False
@@ -186,26 +162,28 @@ class FilelistParser():
         
     def warning(self, msg):
         print("Warning: " + msg)
-        
+
     def parse(self, path, relative_path_basedir):
+        """
+        Parse a filelist and return a flat list of tokens
+        """
         if not os.path.exists(path):
             self.error("path \"" + path + "\" does not exist")
             return
-        
-        # TODO: prevent recursion
+
+        if len(self.input_s) == 0:
+            # This is the first file, so add it to the map
+            self.include_s.append(("command line", -1))
+
+        self.filename_m[path] = self.include_s.copy()
         
         try:
             fp = open(path, "rb")
         except Exception as e:
             self.error("failed to read file \"" + path + "\" (" + str(e) + ")")
-            pass
             return
         
-        fileid = len(self.filename_l)
-        self.filename_l.append(path)
-        self.filename_m[path] = fileid
-        
-        input = FilelistParser.Input(self, fileid, fp)
+        input = FilelistParser.Input(self, path, fp)
         self.input_s.append(input)
         
         # Now, process content until we're done
@@ -218,19 +196,35 @@ class FilelistParser():
                 pass
             
             if tok.img == "-f" or tok.img == "-F":
+                inc_filename = tok.filename
+                inc_lineno = tok.lineno
+
                 # Sub-inclusion
                 try:
                     tok = next(it)
                 except StopIteration:
+                    # TODO: this is a missing filename
                     break
                     pass
-                
-                self.parse(tok.get_img(True), relative_path_basedir)
+
+                full_path = tok.get_img(True)
+
+                self.include_s.append((inc_filename, inc_lineno))
+                if full_path in self.filename_m.keys():
+                    # TODO: multiple inclusion
+                    # The include_s contains the full path of how
+                    # we got here. The filename_m entry contains
+                    # the full path of how the original file was 
+                    # included
+                    pass
+                else:
+                    self.parse(tok.get_img(True), relative_path_basedir)
+                self.include_s.pop()
             else:
                 self.token_l.append(tok)
         
         self.input_s.pop()
-            
-        pass
+
+        return self.token_l
     
     
