@@ -57,7 +57,8 @@ class FilelistToken(object):
     def _expand(expr: str, vars: Dict[str, str]) -> str:
         import re
         def repl(match):
-            var = match.group(1)
+            var = match.group(1) or match.group(2)
             return vars.get(var, match.group(0))
-        # Match $VAR (VAR: [A-Za-z_][A-Za-z0-9_]*)
-        return re.sub(r'\$([A-Za-z_][A-Za-z0-9_]*)', repl, expr)
+        # Match $VAR or ${VAR}
+        pattern = r'\$([A-Za-z_][A-Za-z0-9_]*)|\$\{([A-Za-z_][A-Za-z0-9_]*)\}'
+        return re.sub(pattern, repl, expr)
