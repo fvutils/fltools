@@ -27,7 +27,17 @@ from typing import Dict
 from .filelist_token import FilelistToken
 
 class FilelistParser():
-    
+    def __init__(self, env=None):
+        # Map of path to a stack of inclusion locations
+        self.filename_m : Dict[str,'FilelistParser.FileInfo'] = {}
+        self.input_s = []
+        self.include_s = []
+        self.token_l = []
+        self.fail_on_error = False
+        self.backtrace_on_error = False
+        self.expand_env = True
+        self.env = env if env is not None else os.environ
+
     class Input():
         def __init__(self, parser, filename, fp):
             self.parser = parser
@@ -137,15 +147,6 @@ class FilelistParser():
         def ungetch(self, c):
             self.unget_c = c
         
-    def __init__(self):
-        # Map of path to a stack of inclusion locations
-        self.filename_m : Dict[str,'FilelistParser.FileInfo'] = {}
-        self.input_s = []
-        self.include_s = []
-        self.token_l = []
-        self.fail_on_error = False
-        self.backtrace_on_error = False
-        self.expand_env = True
         
     def set_fail_on_error(self, f):
         self.fail_on_error = f
@@ -257,6 +258,3 @@ class FilelistParser():
             else:
                 return os.path.normpath(
                     os.path.join(self.relpath_resolve_base, path))
-
-    
-    

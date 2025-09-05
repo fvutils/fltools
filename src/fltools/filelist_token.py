@@ -20,6 +20,7 @@
 #*
 #****************************************************************************
 import os
+from typing import Dict
 
 class FilelistToken(object):
     """
@@ -40,7 +41,7 @@ class FilelistToken(object):
             
     def get_img(self, expand_env=False):
         if expand_env:
-            return FilelistToken._expand(self.img)
+            return FilelistToken._expand(self.img, self.parser.env)
         else:
             return self.img
 
@@ -48,33 +49,15 @@ class FilelistToken(object):
         path = self.img
 
         if expand_env:
-            path = FilelistToken._expand(path)
+            path = FilelistToken._expand(path, self.parser.env)
 
         return self.parser._resolve(self.filename, path)
 
-    @staticmethod           
-    def _expand(str):
-        i=0
-        ret = ""
-        while i < len(str):
-            d_idx = str.find('$', i)
-            if d_idx != -1:
-                ret += str[i:d_idx]
-                if str[d_idx+1] == '{':
-                    c_idx = str.find('}', d_idx+2)
-                    if c_idx != -1:
-                        key = str[d_idx+2:c_idx]
-                        if key in os.environ:
-                            ret += os.environ[key]
-                        i = c_idx+1
-                    else:
-                        ret += str[d_idx+1]
-                        i = d_idx+2
-                else:
-                    ret += str[i+1]
-                    i += 1
-            else:
-                ret += str[i:]
-                break
-        return ret
-
+    @staticmethod                                            
+    def _expand(expr: str, vars: Dict[str, str]) -> str:
+        import re
+        def repl(match):
+            var = match.group(1)
+            return vars.get(var, match.group(0))
+        # Match $VAR (VAR: [A-Za-z_][A-Za-z0-9_]*)
+        return re.sub(r'\$([A-Za-z_][A-Za-z0-9_]*)', repl, expr)
